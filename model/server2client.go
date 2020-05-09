@@ -4,6 +4,7 @@ type ServerMessage struct {
 	Setup      []Setup
 	Directions []DirectionSuccess
 	Visibles   []Visibilize
+	Picks      []Pick
 }
 
 type Setup struct {
@@ -21,7 +22,8 @@ type DirectionSuccess struct {
 
 type Visibilize struct {
 	Col, Row    int
-	Walls       [4]bool
+	Walls       []bool
+	Locks       []bool
 	Diamond     bool
 	Key         bool
 	Portal      bool
@@ -29,4 +31,9 @@ type Visibilize struct {
 	PortalToRow int
 	HasPlayer   bool
 	PlayerId    int32
+}
+
+type Pick struct {
+	Keys     int
+	Diamonds int
 }

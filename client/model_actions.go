@@ -100,38 +100,76 @@ loop:
 }
 
 func (gs *GameSession) Loop() {
-	log.Info("GameSession.Loop STARTING")
-	for {
-		select {
-		case sm := <-gs.MessagesIn:
-			log.Info(sm)
-			if len(sm.Setup) == 1 {
-				gs.PlayerKey = sm.Setup[0].PlayerKey
-				gs.Model = model.NewEmptyModel(sm.Setup[0].Cols, sm.Setup[0].Rows, sm.Setup[0].Players)
-			}
+	//log.Info("GameSession.Loop STARTING")
+	//for {
+	select {
+	case sm := <-gs.MessagesIn:
+		log.Info(sm)
+		if len(sm.Setup) == 1 {
+			gs.PlayerKey = sm.Setup[0].PlayerKey
+			log.Info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  I AM: %v", gs.PlayerKey)
+			gs.Model = model.NewEmptyModel(sm.Setup[0].Cols, sm.Setup[0].Rows, sm.Setup[0].Players)
+		}
 
-			for _, v := range sm.Visibles {
-				cell := gs.Model.Matrix[v.Col][v.Row]
+		for _, directionSuccess := range sm.Directions {
+			if directionSuccess.Success {
+				player := gs.Model.Players[directionSuccess.PlayerKey]
+				var cell = gs.Model.Matrix[player.Col][player.Row]
+				var newCell *model.Cell
+				//nonportal
+				if directionSuccess.Direction < 4 {
+					newCell = cell.Paths[directionSuccess.Direction].Target
+					cell.Paths[directionSuccess.Direction].Wall = false
+					cell.Paths[directionSuccess.Direction].Player = player
+					cell.Paths[directionSuccess.Direction].Target.Paths[(directionSuccess.Direction+2)%4].Player = player
+					cell.Paths[directionSuccess.Direction].Target.Paths[(directionSuccess.Direction+2)%4].Wall = false
+					if newCell.Diamond {
+						newCell.Diamond = false
+					}
+				} else {
+					newCell = gs.Model.Matrix[directionSuccess.Col][directionSuccess.Row]
+				}
+				newCell.Unhook(player.Id)
+
+				cell.Player = nil
+				newCell.Player = player
+				player.Row = directionSuccess.Row
+				player.Col = directionSuccess.Col
+			}
+		}
+
+		for _, v := range sm.Visibles {
+			cell := gs.Model.Matrix[v.Col][v.Row]
+			if len(v.Walls) == 4 {
 				for i, p := range cell.Paths {
 					if p != nil {
 						p.Wall = v.Walls[i]
+						p.Lock = v.Locks[i]
 						if p.Target != nil {
 							p.Target.Paths[(i+2)%4].Wall = v.Walls[i]
+							p.Target.Paths[(i+2)%4].Lock = v.Locks[i]
 						}
 					}
 				}
-				cell.Key = v.Key
-				cell.Diamond = v.Diamond
-				if v.HasPlayer {
-					cell.Player = gs.Model.Players[v.PlayerId]
-				} else {
-					cell.Player = nil
-				}
 			}
-			for _, d := range sm.Directions {
-				gs.Model.Players[d.PlayerKey].Row = d.Row
-				gs.Model.Players[d.PlayerKey].Col = d.Col
+			cell.Key = v.Key
+			cell.Diamond = v.Diamond
+			if v.Portal && cell.Portal == nil {
+				cell.Portal = &model.Portal{Target: gs.Model.Matrix[v.PortalToCol][v.PortalToRow]}
+				gs.Model.Matrix[v.PortalToCol][v.PortalToRow].Portal = &model.Portal{Target: cell}
+			}
+			if v.HasPlayer {
+				cell.Player = gs.Model.Players[v.PlayerId]
+			} else {
+				cell.Player = nil
 			}
 		}
+		for _, p := range sm.Picks {
+			gs.Model.Players[gs.PlayerKey].Keys = p.Keys
+			gs.Model.Players[gs.PlayerKey].Diamonds = p.Diamonds
+		}
+	default:
+
 	}
+	//}
 }

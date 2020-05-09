@@ -75,7 +75,7 @@ type PlayerConnectRequest struct {
 }
 
 type PlayerEvent struct {
-	Player    int32
+	PlayerId  int32
 	GameEvent GameEvent
 }
 

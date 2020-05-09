@@ -97,7 +97,7 @@ func (s *GameServer) Loop() {
 			// najdu session nebo udelam novou
 			newIndex := -1
 			for i, gs := range s.GameSessions {
-				if gs.State == GS_NEW {
+				if gs.State == GS_WAIT {
 					newIndex = i
 					break
 				}
@@ -142,7 +142,7 @@ func (gs *GameSession) Loop() {
 				pcr.Con,
 				pcr.GameOver)
 			if gs.State == GS_NEW && len(gs.PlayerSessions) < len(gs.Model.PlayerKeys) {
-				log.Printf("GameSession.Loop ")
+				log.Printf("GameSession.Loop not enought players")
 				gs.State = GS_WAIT
 			} else {
 				gs.State = GS_PLAY
@@ -165,7 +165,7 @@ func (gs *GameSession) Loop() {
 			// tady je realna hra!!!!
 			var playerSession, opponentSession *PlayerSession
 			for i, ps := range gs.PlayerSessions {
-				if ps.Id == pe.Player {
+				if ps.Id == pe.PlayerId {
 					playerSession = &gs.PlayerSessions[i]
 				} else {
 					opponentSession = &gs.PlayerSessions[i]
@@ -173,10 +173,12 @@ func (gs *GameSession) Loop() {
 			}
 			messageToPlayer, messageToOpponent := gs.Turn(pe)
 			if messageToPlayer != nil {
+				//log.Info("GameSession.Loop messageToPlayer")
 				playerSession.MessagesToSend <- *messageToPlayer
 			}
 			if messageToOpponent != nil {
 				if opponentSession != nil {
+					//log.Info("GameSession.Loop messageToOpponent")
 					opponentSession.MessagesToSend <- *messageToOpponent
 				}
 			}
@@ -187,19 +189,20 @@ func (gs *GameSession) Loop() {
 func (gs *GameSession) Turn(pe PlayerEvent) (
 	messageToPlayer *model.ServerMessage,
 	messageToOpponent *model.ServerMessage) {
-	c, r, suc := move(gs.Model, pe.Player, pe.GameEvent.Direction)
+	c, r, k, d, suc := move(gs.Model, pe.PlayerId, pe.GameEvent.Direction)
 	directionSuccess := []model.DirectionSuccess{{
 		Direction: pe.GameEvent.Direction,
 		Col:       c, Row: r, Success: suc,
-		PlayerKey: pe.Player}}
+		PlayerKey: pe.PlayerId}}
 	if suc {
+		player := gs.Model.Players[pe.PlayerId]
 		messageToPlayer = &model.ServerMessage{}
 		messageToOpponent = &model.ServerMessage{}
 		messageToPlayer.Directions = directionSuccess
 		messageToOpponent.Directions = directionSuccess
 		infos := info(gs.Model.Matrix[c][r], true)
 		for i, p := range gs.Model.Matrix[c][r].Paths {
-			if !p.Wall && p.Target != nil {
+			if p != nil && !p.Wall && p.Target != nil {
 				infos = append(infos, info(p.Target, true)...)
 			}
 			diagonal := diagonal(gs.Model.Matrix[c][r], i)
@@ -212,6 +215,9 @@ func (gs *GameSession) Turn(pe PlayerEvent) (
 			}
 		}
 		messageToPlayer.Visibles = infos
+		if k != 0 || d != 0 {
+			messageToPlayer.Picks = []model.Pick{{Keys: player.Keys, Diamonds: player.Diamonds}}
+		}
 	} else {
 		messageToPlayer = &model.ServerMessage{}
 		messageToPlayer.Directions = directionSuccess
@@ -257,7 +263,7 @@ func (ps *PlayerSession) LoopChannelRead() {
 	log.Printf("LoopChannelRead STARTED")
 loop:
 	for {
-		messageType, r, err := ps.Conn.NextReader()
+		_, r, err := ps.Conn.NextReader()
 		if err != nil {
 			if ps.State == PS_ERR_SEC {
 				log.Printf("LoopChannelRead made by close THE OTHER ONE")
@@ -268,7 +274,7 @@ loop:
 			}
 			break loop
 		}
-		log.Printf("LoopChannelRead received  message type: %d", messageType)
+		//log.Printf("LoopChannelRead received  message type: %d", messageType)
 		dec := gob.NewDecoder(r)
 		cm := &model.ClientMessage{}
 		err = dec.Decode(cm)
@@ -278,13 +284,11 @@ loop:
 			ps.GameSession.Errors <- ps.Id
 			break loop
 		}
-		log.Info(cm)
 		ps.DebugLastMessage = time.Now()
 		ps.DebugInMessages++
-
 		select {
 		case ps.GameSession.Events <- PlayerEvent{
-			Player:    ps.Id,
+			PlayerId:  ps.Id,
 			GameEvent: GameEvent{Direction: cm.Move},
 		}:
 		default:
@@ -325,12 +329,12 @@ loop:
 	for {
 		select {
 		case mes := <-ps.MessagesToSend:
-			log.Printf("PlayerSession.LoopChannelWrite started key:%v", ps.Id)
+			//log.Printf("PlayerSession.LoopChannelWrite started key:%v", ps.Id)
 			if ps.State == PS_ERR || ps.State == PS_ERR_SEC {
 				log.Printf("LoopChannelWrite it was close event")
 				break loop
 			}
-			log.Printf("PlayerSession.LoopChannelWrite WRITE TO WEBSOCKET >>>   ")
+			//log.Printf("PlayerSession.LoopChannelWrite WRITE TO WEBSOCKET >>>   ")
 			w, err := ps.Conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				log.Warn("PlayerSession.LoopChannelWrite cant get writer %v", err)
@@ -359,68 +363,86 @@ loop:
 	log.Printf("LoopChannelWrite ENDED")
 }
 
-func move(m *model.Model, pid int32, d int) (int, int, bool) {
-	p, _ := m.Players[pid]
-	cell := m.Matrix[p.Col][p.Row]
-
+func move(m *model.Model, playerId int32, d int) (col int, row int, keysAdd int, diamondsAdd int, success bool) {
+	player, _ := m.Players[playerId]
+	cell := m.Matrix[player.Col][player.Row]
+	col = player.Col
+	row = player.Row
 	if d == 4 {
-		if cell.Portal != nil {
-			newNewCell := cell.Portal.Target
-			newNewCell.Player = cell.Player
-			newNewCell.Player.Col = newNewCell.Col
-			newNewCell.Player.Row = newNewCell.Row
+		if cell.Portal != nil && cell.Portal.Target.Player == nil {
+			newCell := cell.Portal.Target
+			newCell.Player = cell.Player
+			newCell.Player.Col = newCell.Col
+			newCell.Player.Row = newCell.Row
+			newCell.Unhook(playerId)
+			cell.Player = nil
+			col = player.Col
+			row = player.Row
+			success = true
+		}
+		return
+	}
+
+	if cell.Paths[d] == nil || cell.Paths[d].Target != nil && cell.Paths[d].Target.Player != nil {
+		return player.Col, player.Row, 0, 0, false
+	}
+
+	if !cell.Paths[d].Wall || cell.Paths[d].Lock && player.Keys > 0 {
+
+		newCell := cell.Paths[d].Target
+		newCell.Unhook(playerId)
+
+		if cell.Paths[d].Lock {
+			player.Keys--
+			keysAdd--
+			cell.Paths[d].Wall = false
+			cell.Paths[d].Lock = false
+			cell.Paths[d].Target.Paths[(d+2)%4].Wall = false
+			cell.Paths[d].Target.Paths[(d+2)%4].Lock = false
+		}
+
+		if cell.Paths[d].Target != nil {
+			cell.Paths[d].Player = cell.Player
+			newCell.Player = cell.Player
+			newCell.Player.Col = newCell.Col
+			newCell.Player.Row = newCell.Row
+			newCell.Paths[(d+2)%4].Player = newCell.Player
 			cell.Player = nil
 
-		}
-		return p.Col, p.Row, true
-	}
-
-	if cell.Paths[d] != nil {
-
-		if !cell.Paths[d].Wall || cell.Paths[d].Lock && p.Keys > 0 {
-
-			if cell.Paths[d].Lock {
-				p.Keys--
-				cell.Paths[d].Wall = false
-				cell.Paths[d].Lock = false
-				cell.Paths[d].Target.Paths[(d+2)%4].Wall = false
-				cell.Paths[d].Target.Paths[(d+2)%4].Lock = false
+			if newCell.Diamond {
+				newCell.Diamond = false
+				player.Diamonds++
+				diamondsAdd = 1
 			}
-
-			newCell := cell.Paths[d].Target
-			if cell.Paths[d].Target != nil {
-				cell.Paths[d].Player = cell.Player
-				newCell.Player = cell.Player
-				newCell.Player.Col = newCell.Col
-				newCell.Player.Row = newCell.Row
-				newCell.Paths[(d+2)%4].Player = newCell.Player
-				cell.Player = nil
-
-				if newCell.Diamond {
-					newCell.Diamond = false
-				}
-				if newCell.Key {
-					newCell.Key = false
-					m.Players[pid].Keys++
-				}
+			if newCell.Key {
+				newCell.Key = false
+				player.Keys++
+				keysAdd = 1
 			}
 		}
-		return p.Col, p.Row, true
+		col = player.Col
+		row = player.Row
+		success = true
+		return
 	}
-
-	return 0, 0, false
+	col = player.Col
+	row = player.Row
+	return
 }
 
 func info(cell *model.Cell, wallsToo bool) []model.Visibilize {
-	var walls [4]bool
+	var walls []bool
+	var locks []bool
 	basic := visibilizerFromCell(cell)
 	if wallsToo {
-		for i, p := range cell.Paths {
+		for _, p := range cell.Paths {
 			if p != nil {
-				walls[i] = p.Wall
+				walls = append(walls, p.Wall)
+				locks = append(locks, p.Lock)
 			}
 		}
 		basic.Walls = walls
+		basic.Locks = locks
 	}
 	visibles := []model.Visibilize{basic}
 	if cell.Portal != nil {
@@ -507,7 +529,7 @@ func farDirect(c *model.Cell, dirPlus int) *model.Cell {
 	if c.Paths[dirPlus].Wall {
 		return nil
 	}
-	if c.Paths[dirPlus].Target == nil {
+	if c.Paths[dirPlus].Target == nil || c.Paths[dirPlus].Target.Paths[dirPlus] == nil {
 		return nil
 	}
 	if c.Paths[dirPlus].Target.Paths[dirPlus].Wall {

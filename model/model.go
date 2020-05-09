@@ -3,6 +3,7 @@ package model
 type Player struct {
 	Id       int32
 	Keys     int
+	Diamonds int
 	Col, Row int
 }
 

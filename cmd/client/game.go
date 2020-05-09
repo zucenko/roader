@@ -340,7 +340,7 @@ func init() {
 		//score:      0,
 	}
 
-	go gs.Loop()
+	//go gs.Loop()
 
 	gs.Connect("localhost")
 }
@@ -453,44 +453,7 @@ func colorForPlayer(playerKey int32) GameColor {
 func (play *Play) update(screen *ebiten.Image) error {
 	//log.Print("dddddd")
 
-	/*	select {
-		default:
-
-		case messIn := <-play.GameSession.MessagesIn:
-			if messIn.Type == model.DS {
-				log.Printf("Client process %v", messIn.DS)
-				play.GameSession.Model.move(play.GameSession.Id, messIn.DS.Direction)
-			}
-			if messIn.Type == model.VS {
-				cell := play.GameSession.Model.Matrix[messIn.SW.Col][messIn.SW.Row]
-
-				for i, p := range cell.Paths {
-					if p != nil {
-						p.Wall = messIn.SW.Walls[i]
-						if p.Target != nil {
-							p.Target.Paths[(i+2)%4].Wall = messIn.SW.Walls[i]
-						}
-					}
-				}
-				if messIn.SW.Keys {
-					cell.Keys=true
-				}
-				if messIn.SW.Diamond {
-					cell.Diamond=true
-				}
-				if messIn.SW.Portal!=nil {
-					if cell.Portal==nil {
-						otherCell := play.GameSession.Model.Matrix[messIn.SW.Portal.Col][messIn.SW.Portal.Row]
-						cell.Portal = &model.Portal{
-							Target: otherCell,
-						}
-						otherCell.Portal=&model.Portal{Target: cell}
-					}
-				}
-			}
-		}
-	*/
-
+	play.GameSession.Loop()
 	// tween
 	for t, a := range play.Tweens {
 		curr, finished := t.Update(0.02)
@@ -655,6 +618,7 @@ func (play *Play) update(screen *ebiten.Image) error {
 				if cell.Player != nil {
 					if cell.Portal == nil {
 						imgPlayer.SetColor(colorForPlayer(cell.Player.Id))
+						//log.Printf("[%d,%d] %v",c,r,cell.PlayerId.Id)
 						imgPlayer.DrawCentered(screen, topX+c*size, topY+r*size)
 					}
 					imgDot.SetColor(colorForPlayer(cell.Player.Id))
@@ -685,6 +649,7 @@ func (play *Play) update(screen *ebiten.Image) error {
 }
 
 func main() {
+	ebiten.SetRunnableInBackground(true)
 	if err := ebiten.Run(play.update, screenWidth, screenHeight, 1, "Roader"); err != nil {
 		log.Fatal(err)
 	}

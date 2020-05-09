@@ -1,5 +1,18 @@
 package model
 
+import log "github.com/sirupsen/logrus"
+
+func (cell *Cell) Unhook(playerId int32) {
+	for d, p := range cell.Paths {
+		if p.Player != nil && p.Player.Id != playerId {
+			p.Player = nil
+			if p.Target != nil {
+				p.Target.Paths[(d+2)%4].Player = nil
+			}
+		}
+	}
+}
+
 func NewEmptyModel(cols, rows int, players map[int32]Player) *Model {
 	matrix := make([][]*Cell, 0)
 	// create
@@ -35,10 +48,15 @@ func NewEmptyModel(cols, rows int, players map[int32]Player) *Model {
 	}
 
 	p := make(map[int32]*Player)
+
 	for id, pl := range players {
-		p[id] = &pl
-		matrix[pl.Col][pl.Row].Player = p[id]
+		pp := players[id]
+		p[id] = &pp
+		matrix[pp.Col][pp.Row].Player = &pp
+		log.Printf("%v", pl)
 	}
+
+	log.Printf("playerMap: %v", p)
 
 	return &Model{
 		Matrix:  matrix,
