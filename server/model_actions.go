@@ -183,11 +183,11 @@ loop:
 			case MP_MINE:
 				delay = 0
 			case MP_TELEPORT:
-				delay = 1000
+				delay = 500
 			case MP_VIRGIN:
 				delay = 150
 			case MP_OPPONENT:
-				delay = 2000
+				delay = 1000
 			}
 			reply := func() {
 				timer1 := time.NewTimer(time.Duration(delay) * time.Millisecond)
@@ -204,7 +204,8 @@ loop:
 					}
 				}
 			}
-			go reply()
+			//go
+			reply()
 		}
 	}
 }
