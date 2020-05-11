@@ -134,6 +134,7 @@ func (s *GameServer) Loop() {
 
 func (gs *GameSession) Loop() {
 	log.Info("GameSession.Loop start")
+loop:
 	for {
 		select {
 		case pcr := <-gs.PlayerConnectRequests:
@@ -170,19 +171,84 @@ func (gs *GameSession) Loop() {
 				} else {
 					opponentSession = &gs.PlayerSessions[i]
 				}
+
 			}
-			messageToPlayer, messageToOpponent := gs.Turn(pe)
-			if messageToPlayer != nil {
-				//log.Info("GameSession.Loop messageToPlayer")
-				playerSession.MessagesToSend <- *messageToPlayer
+
+			var delay int64
+			switch gs.TurnType(pe) {
+			case MP_NOT_POSSIBLE:
+				player := gs.Model.Players[playerSession.Id]
+				playerSession.MessagesToSend <- model.UnsuccesMoveMessage(pe.GameEvent.Direction, player)
+				continue loop
+			case MP_MINE:
+				delay = 0
+			case MP_TELEPORT:
+				delay = 1000
+			case MP_VIRGIN:
+				delay = 150
+			case MP_OPPONENT:
+				delay = 2000
 			}
-			if messageToOpponent != nil {
-				if opponentSession != nil {
-					//log.Info("GameSession.Loop messageToOpponent")
-					opponentSession.MessagesToSend <- *messageToOpponent
+			reply := func() {
+				timer1 := time.NewTimer(time.Duration(delay) * time.Millisecond)
+				<-timer1.C
+				messageToPlayer, messageToOpponent := gs.Turn(pe)
+				if messageToPlayer != nil {
+					//log.Info("GameSession.Loop messageToPlayer")
+					playerSession.MessagesToSend <- *messageToPlayer
+				}
+				if messageToOpponent != nil {
+					if opponentSession != nil {
+						//log.Info("GameSession.Loop messageToOpponent")
+						opponentSession.MessagesToSend <- *messageToOpponent
+					}
 				}
 			}
+			go reply()
 		}
+	}
+}
+
+type MovePossible int
+
+const (
+	MP_NOT_POSSIBLE MovePossible = iota
+	MP_MINE
+	MP_VIRGIN
+	MP_TELEPORT
+	MP_OPPONENT
+)
+
+func (gs *GameSession) TurnType(pe PlayerEvent) MovePossible {
+	player := gs.Model.Players[pe.PlayerId]
+	cell := gs.Model.Matrix[player.Col][player.Row]
+
+	if pe.GameEvent.Direction == 4 {
+		if cell.Portal == nil || cell.Portal.Target.Player != nil {
+			return MP_NOT_POSSIBLE
+		}
+		return MP_TELEPORT
+	} else {
+
+		path := cell.Paths[pe.GameEvent.Direction]
+
+		//unsuccess
+		if path.Target == nil ||
+			path.Wall && !path.Lock ||
+			path.Wall && path.Lock && player.Keys == 0 ||
+			path.Target.Player != nil {
+			return MP_NOT_POSSIBLE
+		}
+		// mine
+		if path.Player == player {
+			return MP_MINE
+		}
+		// virgin
+		if path.Player == nil {
+			return MP_VIRGIN
+		}
+		// opponent
+		return MP_OPPONENT
 	}
 }
 
@@ -374,7 +440,7 @@ func move(m *model.Model, playerId int32, d int) (col int, row int, keysAdd int,
 			newCell.Player = cell.Player
 			newCell.Player.Col = newCell.Col
 			newCell.Player.Row = newCell.Row
-			newCell.Unhook(playerId)
+			//newCell.Unhook(playerId)
 			cell.Player = nil
 			col = player.Col
 			row = player.Row
@@ -390,7 +456,7 @@ func move(m *model.Model, playerId int32, d int) (col int, row int, keysAdd int,
 	if !cell.Paths[d].Wall || cell.Paths[d].Lock && player.Keys > 0 {
 
 		newCell := cell.Paths[d].Target
-		newCell.Unhook(playerId)
+		//newCell.Unhook(playerId)
 
 		if cell.Paths[d].Lock {
 			player.Keys--

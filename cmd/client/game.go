@@ -244,7 +244,7 @@ func init() {
 
 	//Load()
 
-	dat, err := ebitenutil.OpenFile("graphics/Teko-Light.ttf")
+	dat, err := ebitenutil.OpenFile("graphics/MiriamLibre-Bold.ttf")
 	//dat, err := ioutil.ReadFile("Teko-Light.ttf")
 
 	buf := new(bytes.Buffer)
@@ -368,10 +368,23 @@ func (play *Play) updateStroke(stroke *Stroke) {
 
 }
 
-func prepareTextImage(s string) *ebiten.Image {
-	image, _ := ebiten.NewImage(300, 150, ebiten.FilterLinear)
-	//image.Fill(color.RGBA{255, 0, 0, 255})
-	text.Draw(image, s, Font, 5, 80, color.White)
+var scoreImg *ebiten.Image
+var keys, diamonds int
+
+func prepareTextImage(keys int, diamonds int) *ebiten.Image {
+	image, _ := ebiten.NewImage(220, 55, ebiten.FilterLinear)
+	image.Fill(color.RGBA{0, 0, 0, 105})
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(1, 1)
+	op.GeoM.Translate(5, 15)
+	image.DrawImage(imgKey.image, op)
+	op = &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(1, 1)
+	op.GeoM.Translate(185, 15)
+	image.DrawImage(imgDiamond.image, op)
+
+	text.Draw(image, fmt.Sprintf("%d     %d", keys, diamonds), Font, 45, 45, color.White)
 	return image
 }
 
@@ -454,6 +467,7 @@ func (play *Play) update(screen *ebiten.Image) error {
 	//log.Print("dddddd")
 
 	play.GameSession.Loop()
+
 	// tween
 	for t, a := range play.Tweens {
 		curr, finished := t.Update(0.02)
@@ -524,6 +538,14 @@ func (play *Play) update(screen *ebiten.Image) error {
 	topY := size
 
 	if play.GameSession.Model != nil {
+
+		if play.GameSession.Model.Players[play.GameSession.PlayerKey].Diamonds != diamonds ||
+			play.GameSession.Model.Players[play.GameSession.PlayerKey].Keys != keys {
+			diamonds = play.GameSession.Model.Players[play.GameSession.PlayerKey].Diamonds
+			keys = play.GameSession.Model.Players[play.GameSession.PlayerKey].Keys
+			scoreImg = prepareTextImage(keys, diamonds)
+		}
+
 		for c := 0; c < len(play.GameSession.Model.Matrix); c++ {
 			for r := 0; r < len(play.GameSession.Model.Matrix[0]); r++ {
 				cell := play.GameSession.Model.Matrix[c][r]
@@ -627,8 +649,15 @@ func (play *Play) update(screen *ebiten.Image) error {
 
 			}
 		}
-	}
 
+	}
+	if scoreImg != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(1, 1)
+		op.GeoM.Translate(100, 100)
+		op.GeoM.Rotate(.1)
+		screen.DrawImage(scoreImg, op)
+	}
 	/*
 		//play.Score
 		op := &ebiten.DrawImageOptions{}

@@ -63,3 +63,14 @@ func NewEmptyModel(cols, rows int, players map[int32]Player) *Model {
 		Players: p,
 	}
 }
+
+func UnsuccesMoveMessage(d int, p *Player) ServerMessage {
+	return ServerMessage{
+		Directions: []DirectionSuccess{{
+			Direction: d,
+			Col:       p.Col,
+			Row:       p.Row,
+
+			Success: false}},
+	}
+}

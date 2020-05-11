@@ -129,7 +129,7 @@ func (gs *GameSession) Loop() {
 				} else {
 					newCell = gs.Model.Matrix[directionSuccess.Col][directionSuccess.Row]
 				}
-				newCell.Unhook(player.Id)
+				//newCell.Unhook(player.Id)
 
 				cell.Player = nil
 				newCell.Player = player

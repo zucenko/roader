@@ -9,7 +9,7 @@ import (
 )
 
 func Load() (m *model.Model, e error) {
-	file, fileErr := ebitenutil.OpenFile("data/data_2.txt")
+	file, fileErr := ebitenutil.OpenFile("data/data_5.txt")
 	if fileErr != nil {
 		e = fileErr
 		return
@@ -80,7 +80,13 @@ func read(reader io.Reader) (cels [][]*model.Cell, players map[int32]*model.Play
 					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 						prev, found := portals[char]
 						if found {
-							pevPortalCell := ReadLines[prev[1]][prev[0]]
+							var pevPortalCell *model.Cell
+							// is it by accident yet this line not ever added?
+							if prev[1] == len(ReadLines) {
+								pevPortalCell = Line[prev[0]]
+							} else {
+								pevPortalCell = ReadLines[prev[1]][prev[0]]
+							}
 							pevPortalCell.Portal = &model.Portal{Target: cell}
 							cell.Portal = &model.Portal{Target: pevPortalCell}
 							delete(portals, char)
