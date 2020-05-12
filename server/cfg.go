@@ -9,7 +9,7 @@ import (
 )
 
 func Load() (m *model.Model, e error) {
-	file, fileErr := os.Open("data/data_1.txt")
+	file, fileErr := os.Open("data/data_2.txt")
 
 	if fileErr != nil {
 		e = fileErr
