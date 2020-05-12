@@ -142,7 +142,7 @@ loop:
 			gs.addPlayer(
 				pcr.Con,
 				pcr.GameOver)
-			if gs.State == GS_NEW && len(gs.PlayerSessions) < len(gs.Model.PlayerKeys) {
+			if gs.State == GS_NEW || len(gs.PlayerSessions) < len(gs.Model.PlayerKeys) {
 				log.Printf("GameSession.Loop not enought players")
 				gs.State = GS_WAIT
 			} else {
@@ -164,12 +164,13 @@ loop:
 			}
 		case pe := <-gs.Events:
 			// tady je realna hra!!!!
-			var playerSession, opponentSession *PlayerSession
+			var playerSession *PlayerSession
+			opponentSessions := make([]*PlayerSession, 0)
 			for i, ps := range gs.PlayerSessions {
 				if ps.Id == pe.PlayerId {
 					playerSession = &gs.PlayerSessions[i]
 				} else {
-					opponentSession = &gs.PlayerSessions[i]
+					opponentSessions = append(opponentSessions, &gs.PlayerSessions[i])
 				}
 
 			}
@@ -198,9 +199,9 @@ loop:
 					playerSession.MessagesToSend <- *messageToPlayer
 				}
 				if messageToOpponent != nil {
-					if opponentSession != nil {
+					for _, oSess := range opponentSessions {
 						//log.Info("GameSession.Loop messageToOpponent")
-						opponentSession.MessagesToSend <- *messageToOpponent
+						oSess.MessagesToSend <- *messageToOpponent
 					}
 				}
 			}

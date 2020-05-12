@@ -578,13 +578,27 @@ func (play *Play) update(screen *ebiten.Image) error {
 				}
 
 				// PLAYER PATH SEGMENTS
+				difStart := 0
+				difLenBase := 0
+				difLenFinal := 0
+				CROSS_OFF := 7
+				if cell.Crossing {
+					difStart = CROSS_OFF
+					difLenBase = CROSS_OFF
+					difLenFinal = CROSS_OFF
+				}
 				if c < len(play.GameSession.Model.Matrix)-1 {
 					path := cell.Paths[0]
 					if path.Player != nil {
+						if path.Target.Crossing {
+							difLenFinal = difLenBase + CROSS_OFF
+						} else {
+							difLenFinal = difLenBase
+						}
 						color := colorForPlayer(path.Player.Id)
 						Line.SetColor(color.r, color.g, color.b)
-						Line.SetPosition(topX+c*size-wallWidth/2, topY+r*size-wallWidth/2)
-						Line.SetSize(size+wallWidth, wallWidth)
+						Line.SetPosition(topX+c*size-wallWidth/2+difStart, topY+r*size-wallWidth/2)
+						Line.SetSize(size+wallWidth-difLenFinal, wallWidth)
 						Line.Draw(screen)
 					}
 				}
@@ -592,10 +606,15 @@ func (play *Play) update(screen *ebiten.Image) error {
 				if r < len(play.GameSession.Model.Matrix[0])-1 {
 					path := cell.Paths[1]
 					if path.Player != nil {
+						if path.Target.Crossing {
+							difLenFinal = difLenBase + CROSS_OFF
+						} else {
+							difLenFinal = difLenBase
+						}
 						color := colorForPlayer(path.Player.Id)
 						Line.SetColor(color.r, color.g, color.b)
-						Line.SetPosition(topX+c*size-wallWidth/2, topY+r*size-wallWidth/2)
-						Line.SetSize(wallWidth, size+wallWidth)
+						Line.SetPosition(topX+c*size-wallWidth/2, topY+r*size-wallWidth/2+difStart)
+						Line.SetSize(wallWidth, size+wallWidth-difLenFinal)
 						Line.Draw(screen)
 					}
 				}

@@ -2,12 +2,16 @@ package model
 
 import log "github.com/sirupsen/logrus"
 
-func (cell *Cell) Unhook(playerId int32) {
-	for d, p := range cell.Paths {
-		if p.Player != nil && p.Player.Id != playerId {
-			p.Player = nil
-			if p.Target != nil {
-				p.Target.Paths[(d+2)%4].Player = nil
+func (cell *Cell) Crossings() {
+	cell.Crossing = false
+	var pl1 *Player
+	for _, p := range cell.Paths {
+		if p.Player != nil {
+			if pl1 == nil {
+				pl1 = p.Player
+			} else if pl1 != p.Player {
+				cell.Crossing = true
+				return
 			}
 		}
 	}

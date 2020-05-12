@@ -24,6 +24,7 @@ type Cell struct {
 	Paths    [4]*Path
 	Portal   *Portal
 	Player   *Player
+	Crossing bool
 	Diamond  bool
 	Key      bool
 }

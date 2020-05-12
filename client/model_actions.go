@@ -123,9 +123,10 @@ func (gs *GameSession) Loop() {
 					cell.Paths[directionSuccess.Direction].Player = player
 					cell.Paths[directionSuccess.Direction].Target.Paths[(directionSuccess.Direction+2)%4].Player = player
 					cell.Paths[directionSuccess.Direction].Target.Paths[(directionSuccess.Direction+2)%4].Wall = false
-					if newCell.Diamond {
-						newCell.Diamond = false
-					}
+					newCell.Diamond = false
+					newCell.Key = false
+					cell.Crossings()
+					newCell.Crossings()
 				} else {
 					newCell = gs.Model.Matrix[directionSuccess.Col][directionSuccess.Row]
 				}
