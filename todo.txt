@@ -1,0 +1,12 @@
+state in server.PlayerSession and client.GameSession - WAITING
+
+
+
+
+timers
+
+HUD - diamonds, keys
+
+game over on diamonds?
+
+client viewport on bigger map
