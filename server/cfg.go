@@ -2,14 +2,15 @@ package server
 
 import (
 	"bufio"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"github.com/zucenko/roader/model"
 	"io"
 	"log"
+	"os"
 )
 
 func Load() (m *model.Model, e error) {
-	file, fileErr := ebitenutil.OpenFile("data/data_1.txt")
+	file, fileErr := os.Open("data/data_1.txt")
+
 	if fileErr != nil {
 		e = fileErr
 		return

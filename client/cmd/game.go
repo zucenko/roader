@@ -10,7 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/text"
 	"github.com/tanema/gween"
 	"github.com/zucenko/roader/client"
-	"github.com/zucenko/roader/gamming"
+	"github.com/zucenko/roader/client/gamming"
 	"github.com/zucenko/roader/model"
 	"golang.org/x/image/font"
 	"image/color"
