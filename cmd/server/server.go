@@ -23,7 +23,7 @@ func main() {
 	Server.routes()
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "80"
+		port = "8080"
 		log.Printf("Defaulting to port %s", port)
 	}
 	log.Fatalln(http.ListenAndServe(":"+port, Server.router))
