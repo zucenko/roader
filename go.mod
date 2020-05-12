@@ -8,5 +8,4 @@ require (
 	github.com/matryer/way v0.0.0-20180416093233-9632d0c407b0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/zucenko/roader v1
 )
